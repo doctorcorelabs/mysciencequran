@@ -22,6 +22,8 @@ const iconMap: { [key: string]: React.ElementType } = {
   Search: Search,
 };
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
 const AnalysisInterface = () => {
   const [inputText, setInputText] = useState("");
   const [selectedSurah, setSelectedSurah] = useState("");
@@ -67,7 +69,7 @@ const AnalysisInterface = () => {
       }
       try {
         // Fetch surah details and verses from backend proxy
-        const surahResponse = await fetch(`http://localhost:5000/api/quran/surah/${selectedSurah}`);
+        const surahResponse = await fetch(`${API_BASE_URL}/api/quran/surah/${selectedSurah}`);
         const surahData = await surahResponse.json();
 
         if (surahData.code === 200 && surahData.data) {
@@ -87,7 +89,7 @@ const AnalysisInterface = () => {
         }
 
         // Fetch tafsir from backend proxy
-        const tafsirResponse = await fetch(`http://localhost:5000/api/quran/tafsir/${selectedSurah}`);
+        const tafsirResponse = await fetch(`${API_BASE_URL}/api/quran/tafsir/${selectedSurah}`);
         const tafsirResData = await tafsirResponse.json();
 
         if (tafsirResData.code === 200 && tafsirResData.data) {
@@ -127,7 +129,7 @@ const AnalysisInterface = () => {
 
       try {
         // Use backend proxy for AI analysis
-        const aiResponse = await fetch('http://localhost:5000/api/ai/analyze', {
+        const aiResponse = await fetch(`${API_BASE_URL}/api/ai/analyze`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
