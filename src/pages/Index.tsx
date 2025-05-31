@@ -8,12 +8,11 @@ import { BookOpen, Search, Lightbulb, Users, Microscope, Atom, Globe, Heart } fr
 import Navigation from "@/components/Navigation";
 import HeroSection from "@/components/HeroSection";
 import AnalysisInterface from "@/components/AnalysisInterface";
-import ThematicExploration from "@/components/ThematicExploration";
 import PopularFindings from "@/components/PopularFindings";
 import Footer from "@/components/Footer";
 
 const Index = () => {
-  const [currentSection, setCurrentSection] = useState<'home' | 'analysis' | 'exploration'>('home');
+  const [currentSection, setCurrentSection] = useState<'home' | 'analysis'>('home');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50">
@@ -60,18 +59,6 @@ const Index = () => {
               
               <Card className="border-emerald-100 hover:shadow-lg transition-shadow">
                 <CardHeader className="text-center">
-                  <Microscope className="w-12 h-12 text-emerald-600 mx-auto mb-4" />
-                  <CardTitle className="text-lg">Eksplorasi Tematik</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 text-sm">
-                    Jelajahi ayat berdasarkan kategori sains: Astronomi, Biologi, Fisika, dan lainnya
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-emerald-100 hover:shadow-lg transition-shadow">
-                <CardHeader className="text-center">
                   <Users className="w-12 h-12 text-emerald-600 mx-auto mb-4" />
                   <CardTitle className="text-lg">Komunitas Belajar</CardTitle>
                 </CardHeader>
@@ -87,7 +74,6 @@ const Index = () => {
       )}
       
       {currentSection === 'analysis' && <AnalysisInterface />}
-      {currentSection === 'exploration' && <ThematicExploration />}
       
       <Footer />
     </div>

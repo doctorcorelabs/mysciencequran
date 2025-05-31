@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { BookOpen, Search, Lightbulb } from "lucide-react";
 
 interface NavigationProps {
-  currentSection: 'home' | 'analysis' | 'exploration';
-  setCurrentSection: (section: 'home' | 'analysis' | 'exploration') => void;
+  currentSection: 'home' | 'analysis';
+  setCurrentSection: (section: 'home' | 'analysis') => void;
 }
 
 const Navigation = ({ currentSection, setCurrentSection }: NavigationProps) => {
@@ -37,14 +37,6 @@ const Navigation = ({ currentSection, setCurrentSection }: NavigationProps) => {
             >
               <Lightbulb className="w-4 h-4 mr-2" />
               Analisis AI
-            </Button>
-            <Button
-              variant={currentSection === 'exploration' ? 'default' : 'ghost'}
-              onClick={() => setCurrentSection('exploration')}
-              className="text-gray-700 hover:text-emerald-600"
-            >
-              <Search className="w-4 h-4 mr-2" />
-              Eksplorasi Tematik
             </Button>
             <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
               Tentang Kami

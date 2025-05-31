@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { ArrowRight, BookOpen, Lightbulb } from "lucide-react";
 
 interface HeroSectionProps {
-  setCurrentSection: (section: 'home' | 'analysis' | 'exploration') => void;
+  setCurrentSection: (section: 'home' | 'analysis') => void;
 }
 
 const HeroSection = ({ setCurrentSection }: HeroSectionProps) => {
@@ -41,14 +41,6 @@ const HeroSection = ({ setCurrentSection }: HeroSectionProps) => {
               <BookOpen className="w-5 h-5 mr-2" />
               Mulai Analisis Ayat
               <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="lg" 
-              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-8 py-6 text-lg"
-              onClick={() => setCurrentSection('exploration')}
-            >
-              Jelajahi Kategori Sains
             </Button>
           </div>
         </div>
