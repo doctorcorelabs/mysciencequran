@@ -68,7 +68,7 @@ const AnalysisInterface = () => {
     setEvaluationResult(null);
     setUserAnswer("");
     try {
-      const response = await fetch(`${API_BASE_URL}/api/interactive/generate-question`, {
+      const response = await fetch(`${API_BASE_URL}/api/ai/generate-question`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contextText }),
@@ -98,7 +98,7 @@ const AnalysisInterface = () => {
     setInteractionError(null);
     setEvaluationResult(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/interactive/evaluate-answer`, {
+      const response = await fetch(`${API_BASE_URL}/api/ai/evaluate-answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: generatedQuestion, userAnswer }),
