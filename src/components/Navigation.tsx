@@ -38,9 +38,6 @@ const Navigation = ({ currentSection, setCurrentSection }: NavigationProps) => {
               <Lightbulb className="w-4 h-4 mr-2" />
               Analisis AI
             </Button>
-            <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-              Tentang Kami
-            </Button>
           </div>
         </div>
       </div>

@@ -57,7 +57,7 @@ app.post('/api/ai/analyze', async (req, res) => {
     const aiInput = req.body; // The body should contain verse and tafsir data
     
     // Explicitly force Indonesian language in multiple ways to ensure API understands
-    const aiResponse = await fetch('https://worker-ai.daivanfebrijuansetiya.workers.dev/analyze-ai', {
+    const aiResponse = await fetch('https://worker-ai.daivanfebrijuansetiya.workers.dev/api/ai/analyze', { // Corrected path
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,6 +76,46 @@ app.post('/api/ai/analyze', async (req, res) => {
   } catch (error) {
     console.error('Error during AI analysis proxy:', error);
     res.status(500).json({ error: 'Failed to perform AI analysis' });
+  }
+});
+
+// --- NEW PROXY ENDPOINTS FOR INTERACTIVE AI FEATURES ---
+
+// Proxy for generating a question
+app.post('/api/interactive/generate-question', async (req, res) => {
+  try {
+    const response = await fetch('https://worker-ai.daivanfebrijuansetiya.workers.dev/api/ai/generate-question', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Add any other necessary headers, e.g., for auth if your worker requires it
+      },
+      body: JSON.stringify(req.body),
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Error proxying generate-question to worker-ai:', error);
+    res.status(500).json({ error: 'Failed to proxy question generation request' });
+  }
+});
+
+// Proxy for evaluating an answer
+app.post('/api/interactive/evaluate-answer', async (req, res) => {
+  try {
+    const response = await fetch('https://worker-ai.daivanfebrijuansetiya.workers.dev/api/ai/evaluate-answer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Add any other necessary headers
+      },
+      body: JSON.stringify(req.body),
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Error proxying evaluate-answer to worker-ai:', error);
+    res.status(500).json({ error: 'Failed to proxy answer evaluation request' });
   }
 });
 

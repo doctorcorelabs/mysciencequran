@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Search, Lightbulb, Users, Microscope, Atom, Globe, Heart } from "lucide-react";
+import { BookOpen, Search, Lightbulb, Users, Microscope, Atom, Globe, Heart, AudioLines, ShieldCheck } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import HeroSection from "@/components/HeroSection";
 import AnalysisInterface from "@/components/AnalysisInterface";
@@ -39,7 +39,7 @@ const Index = () => {
                   <CardTitle className="text-lg">Analisis AI Canggih</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 text-sm">
+                  <p className="text-gray-600 text-sm text-justify">
                     Teknologi AI menganalisis makna ayat dan mengidentifikasi keterkaitan dengan konsep ilmiah modern
                   </p>
                 </CardContent>
@@ -51,7 +51,7 @@ const Index = () => {
                   <CardTitle className="text-lg">Database Lengkap</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 text-sm">
+                  <p className="text-gray-600 text-sm text-justify">
                     Akses mudah ke seluruh ayat Al-Quran dengan terjemahan dan transliterasi yang akurat
                   </p>
                 </CardContent>
@@ -59,12 +59,24 @@ const Index = () => {
               
               <Card className="border-emerald-100 hover:shadow-lg transition-shadow">
                 <CardHeader className="text-center">
-                  <Users className="w-12 h-12 text-emerald-600 mx-auto mb-4" />
-                  <CardTitle className="text-lg">Komunitas Belajar</CardTitle>
+                  <AudioLines className="w-12 h-12 text-emerald-600 mx-auto mb-4" />
+                  <CardTitle className="text-lg">Audio Murottal & Tafsir Ayat</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 text-sm">
-                    Bergabung dengan komunitas pelajar, mahasiswa, dan peneliti yang sama-sama mencari kebenaran
+                  <p className="text-gray-600 text-sm text-justify">
+                    Tersedia fitur audio murottal untuk setiap ayat beserta penjelasan tafsirnya.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-emerald-100 hover:shadow-lg transition-shadow">
+                <CardHeader className="text-center">
+                  <ShieldCheck className="w-12 h-12 text-emerald-600 mx-auto mb-4" />
+                  <CardTitle className="text-lg">Sumber Terpercaya</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 text-sm text-justify">
+                    Menggunakan data Al-Quran dan terjemahan resmi dari Kementerian Agama (Kemenag) Republik Indonesia.
                   </p>
                 </CardContent>
               </Card>

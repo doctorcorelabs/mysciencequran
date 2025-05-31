@@ -81,30 +81,14 @@ const PopularFindings = () => {
               </p>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+              <p className="text-gray-600 text-sm mb-4 leading-relaxed text-justify">
                 {finding.description}
               </p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-              >
-                Lihat Analisis Lengkap
-              </Button>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="text-center mt-8">
-        <Button 
-          variant="outline" 
-          size="lg"
-          className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-        >
-          Lihat Semua Temuan
-        </Button>
-      </div>
     </div>
   );
 };

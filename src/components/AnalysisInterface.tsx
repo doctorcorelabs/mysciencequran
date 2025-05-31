@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +32,15 @@ const AnalysisInterface = () => {
   const [error, setError] = useState<string | null>(null);
   const [surahList, setSurahList] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("reference");
+  const surahSelectContentRef = useRef<HTMLDivElement>(null);
+
+  // New state for interactive Q&A
+  const [generatedQuestion, setGeneratedQuestion] = useState<string | null>(null);
+  const [userAnswer, setUserAnswer] = useState<string>("");
+  const [evaluationResult, setEvaluationResult] = useState<{ feedback: string; score: number } | null>(null);
+  const [isGeneratingQuestion, setIsGeneratingQuestion] = useState<boolean>(false);
+  const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState<boolean>(false);
+  const [interactionError, setInteractionError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSurahList = async () => {
@@ -53,10 +61,72 @@ const AnalysisInterface = () => {
     fetchSurahList();
   }, []);
 
+  const fetchGeneratedQuestion = async (contextText: string) => {
+    setIsGeneratingQuestion(true);
+    setInteractionError(null);
+    setGeneratedQuestion(null);
+    setEvaluationResult(null);
+    setUserAnswer("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/interactive/generate-question`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contextText }),
+      });
+      const result = await response.json();
+      if (response.ok && result.code === 200 && result.question) {
+        setGeneratedQuestion(result.question);
+      } else {
+        setInteractionError(result.message || "Gagal menghasilkan pertanyaan.");
+        setGeneratedQuestion(null);
+      }
+    } catch (err: any) {
+      console.error("Error fetching generated question:", err.message);
+      setInteractionError(`Gagal menghasilkan pertanyaan: ${err.message}`);
+      setGeneratedQuestion(null);
+    } finally {
+      setIsGeneratingQuestion(false);
+    }
+  };
+
+  const handleAnswerSubmit = async () => {
+    if (!generatedQuestion || !userAnswer) {
+      setInteractionError("Pertanyaan atau jawaban tidak boleh kosong.");
+      return;
+    }
+    setIsEvaluatingAnswer(true);
+    setInteractionError(null);
+    setEvaluationResult(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/interactive/evaluate-answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: generatedQuestion, userAnswer }),
+      });
+      const result = await response.json();
+      if (response.ok && result.code === 200) {
+        setEvaluationResult({ feedback: result.feedback, score: result.score });
+      } else {
+        setInteractionError(result.message || "Gagal mengevaluasi jawaban.");
+      }
+    } catch (err: any) {
+      console.error("Error evaluating answer:", err.message);
+      setInteractionError(`Gagal mengevaluasi jawaban: ${err.message}`);
+    } finally {
+      setIsEvaluatingAnswer(false);
+    }
+  };
+
   const handleAnalysis = async () => {
     setIsAnalyzing(true);
     setError(null);
     setAnalysisResult(null);
+    // Reset interactive Q&A state
+    setGeneratedQuestion(null);
+    setUserAnswer("");
+    setEvaluationResult(null);
+    setInteractionError(null);
+
 
     let verseData = null;
     let tafsirData = null;
@@ -147,7 +217,6 @@ const AnalysisInterface = () => {
           const isEnglishText = (text: string): boolean => {
             if (!text) return false;
             
-            // Common English words/patterns that should not appear in Indonesian content
             const englishPatterns = [
               /\bthe\b/i, /\band\b/i, /\bof\b/i, /\bis\b/i, /\bin\b/i, /\bto\b/i, /\bthat\b/i,
               /\bfor\b/i, /\bwith\b/i, /\bas\b/i, /\bon\b/i, /\bat\b/i, /\bby\b/i, /\bfrom\b/i,
@@ -156,113 +225,68 @@ const AnalysisInterface = () => {
               /\sdiscusses\s/i, /\stouches\s/i, /\sexplores\s/i, /\shighlights\s/i, /\simplies\s/i
             ];
             
-            // If multiple English patterns are found, likely English text
             let englishPatternCount = 0;
             for (const pattern of englishPatterns) {
               if (pattern.test(text)) {
                 englishPatternCount++;
-                if (englishPatternCount >= 3) return true; // If 3+ English patterns found, consider it English
+                if (englishPatternCount >= 3) return true; 
               }
             }
             
             return false;
           };
 
-          // Dictionary for English-Indonesian terms and common phrases
           const translationDict: {[key: string]: string} = {
-            // Fields
-            "Psychology": "Psikologi",
-            "Political Science": "Ilmu Politik",
-            "Biology": "Biologi",
-            "Chemistry": "Kimia",
-            "Physics": "Fisika",
-            "Astronomy": "Astronomi",
-            "Medicine": "Kedokteran",
-            "Geology": "Geologi",
-            "Sociology": "Sosiologi",
-            "Decision Making": "Pengambilan Keputusan",
-            "General Reflection": "Refleksi Umum",
-            "Ethics": "Etika",
-            "Philosophy": "Filsafat",
-            "Neuroscience": "Neurosains",
-            "Environmental Science": "Ilmu Lingkungan",
-            "Mathematics": "Matematika",
-            "History": "Sejarah",
-            
-            // Common English phrases in descriptions
-            "The verse discusses": "Ayat ini membahas",
-            "The verse touches upon": "Ayat ini menyentuh tentang",
-            "The verse explores": "Ayat ini mengeksplorasi",
-            "The verse highlights": "Ayat ini menyoroti",
-            "This relates to": "Ini berkaitan dengan",
-            "This connects to": "Ini terhubung dengan",
-            "cognitive dissonance": "disonansi kognitif",
-            "decision-making": "pengambilan keputusan",
-            "emotional regulation": "regulasi emosi",
-            "justifications for war": "pembenaran untuk perang",
-            "international relations": "hubungan internasional",
-            "societal implications": "implikasi sosial",
-            "warfare": "peperangan",
-            "conflict resolution": "resolusi konflik",
-            "military strategies": "strategi militer",
-            "humanitarian aid": "bantuan kemanusiaan"
+            "Psychology": "Psikologi", "Political Science": "Ilmu Politik", "Biology": "Biologi",
+            "Chemistry": "Kimia", "Physics": "Fisika", "Astronomy": "Astronomi", "Medicine": "Kedokteran",
+            "Geology": "Geologi", "Sociology": "Sosiologi", "Decision Making": "Pengambilan Keputusan",
+            "General Reflection": "Refleksi Umum", "Ethics": "Etika", "Philosophy": "Filsafat",
+            "Neuroscience": "Neurosains", "Environmental Science": "Ilmu Lingkungan", "Mathematics": "Matematika",
+            "History": "Sejarah", "The verse discusses": "Ayat ini membahas", "The verse touches upon": "Ayat ini menyentuh tentang",
+            "The verse explores": "Ayat ini mengeksplorasi", "The verse highlights": "Ayat ini menyoroti",
+            "This relates to": "Ini berkaitan dengan", "This connects to": "Ini terhubung dengan",
+            "cognitive dissonance": "disonansi kognitif", "decision-making": "pengambilan keputusan",
+            "emotional regulation": "regulasi emosi", "justifications for war": "pembenaran untuk perang",
+            "international relations": "hubungan internasional", "societal implications": "implikasi sosial",
+            "warfare": "peperangan", "conflict resolution": "resolusi konflik",
+            "military strategies": "strategi militer", "humanitarian aid": "bantuan kemanusiaan"
           };
           
-          // Function to translate English text to Indonesian using dictionary
           const translateEnglishPhrases = (text: string): string => {
             if (!text) return text;
             let translatedText = text;
-            
-            // Replace known phrases
             Object.entries(translationDict).forEach(([english, indonesian]) => {
               translatedText = translatedText.replace(new RegExp(english, 'gi'), indonesian);
             });
-            
             return translatedText;
           };
 
-          // Process scientific connections to ensure Indonesian language and proper formatting
           const processedConnections = aiResult.data.scientificConnections.map((conn: any) => {
-            // Ensure field is in Indonesian
             let field = conn.field;
             let description = conn.description;
             let examples = conn.examples || [];
             
-            // Translate field if it's in English
-            if (translationDict[field]) {
-              field = translationDict[field];
-            }
-            
-            // Check if description is in English and translate it
-            if (isEnglishText(description)) {
-              description = translateEnglishPhrases(description);
-            }
-            
-            // Translate examples if they're in English
-            examples = examples.map((example: string) => {
-              if (isEnglishText(example)) {
-                return translateEnglishPhrases(example);
-              }
-              return example;
-            });
+            if (translationDict[field]) field = translationDict[field];
+            if (isEnglishText(description)) description = translateEnglishPhrases(description);
+            examples = examples.map((example: string) => isEnglishText(example) ? translateEnglishPhrases(example) : example);
             
             return {
-              ...conn,
-              field: field,
-              description: description,
-              examples: examples,
+              ...conn, field, description, examples,
               icon: iconMap[conn.icon] ? React.createElement(iconMap[conn.icon], { className: "w-6 h-6" }) : null
             };
           });
           
           setAnalysisResult({
-            verse: { 
-              ...aiResult.data.verse, 
-              audioUrl: verseData?.audioUrl, 
-            },
+            verse: { ...aiResult.data.verse, audioUrl: verseData?.audioUrl },
             scientificConnections: processedConnections,
             tafsir: tafsirData, 
           });
+
+          if (processedConnections && processedConnections.length > 0 && processedConnections[0].description) {
+            fetchGeneratedQuestion(processedConnections[0].description);
+          } else {
+            setGeneratedQuestion(null); 
+          }
         } else {
           setError(aiResult.message || "Gagal melakukan analisis AI.");
         }
@@ -313,11 +337,28 @@ const AnalysisInterface = () => {
               
               <TabsContent value="reference" className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <Select onValueChange={setSelectedSurah} value={selectedSurah}>
+                  <Select 
+                    onValueChange={setSelectedSurah} 
+                    value={selectedSurah}
+                    onOpenChange={(isOpen) => {
+                      if (isOpen && surahSelectContentRef.current) {
+                        setTimeout(() => {
+                          if (surahSelectContentRef.current) {
+                            surahSelectContentRef.current.scrollTop = 0;
+                          }
+                        }, 0);
+                      }
+                    }}
+                  >
                     <SelectTrigger className="border-emerald-200 focus:border-emerald-400">
                       <SelectValue placeholder="Pilih Surah" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent 
+                      ref={surahSelectContentRef}
+                      sideOffset={5} 
+                      collisionPadding={10} 
+                      avoidCollisions={true} 
+                    >
                       {surahList.map((surah) => (
                         <SelectItem key={surah.nomor} value={String(surah.nomor)}>
                           {surah.nomor}. {surah.namaLatin} ({surah.jumlahAyat} ayat)
@@ -359,6 +400,74 @@ const AnalysisInterface = () => {
                 </>
               )}
             </Button>
+
+            {/* Interactive Q&A Section (LG screens) */}
+            {analysisResult && (
+              <div className="hidden lg:block mt-6">
+                {isGeneratingQuestion && (
+                  <div className="text-center py-6">
+                    <div className="animate-spin w-6 h-6 border-3 border-blue-200 border-t-blue-500 rounded-full mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-500">Menghasilkan pertanyaan refleksi...</p>
+                  </div>
+                )}
+
+                {analysisResult && generatedQuestion && !isGeneratingQuestion && (
+                  <>
+                    <Separator className="my-6" />
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Pertanyaan Refleksi:</h4>
+                      <Card className="border-blue-200 bg-blue-50">
+                        <CardContent className="p-4">
+                          <p className="text-gray-800 mb-4 text-justify">{generatedQuestion}</p>
+                          <Textarea
+                            placeholder="Masukkan jawaban Anda di sini..."
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            className="min-h-24 border-blue-300 focus:border-blue-500 mb-3"
+                          />
+                          <Button
+                            onClick={handleAnswerSubmit}
+                            disabled={isEvaluatingAnswer || !userAnswer.trim()}
+                            className="w-full bg-blue-600 hover:bg-blue-700"
+                          >
+                            {isEvaluatingAnswer ? (
+                              <>
+                                <Zap className="w-4 h-4 mr-2 animate-pulse" />
+                                Mengevaluasi...
+                              </>
+                            ) : (
+                              "Kirim Jawaban"
+                            )}
+                          </Button>
+                          {interactionError && <p className="text-red-500 text-sm mt-2">{interactionError}</p>}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
+
+                {evaluationResult && !isEvaluatingAnswer && (
+                  <div className="mt-4">
+                    <h5 className="text-md font-semibold text-gray-900 mb-2">Evaluasi Jawaban Anda:</h5>
+                    <Card className="border-green-200 bg-green-50">
+                      <CardContent className="p-4">
+                        <p className="text-gray-700 text-sm mb-2 text-justify">{evaluationResult.feedback}</p>
+                        <div className="flex items-center">
+                          <p className="text-sm font-medium text-gray-600 mr-2">Skor:</p>
+                          {[...Array(5)].map((_, i) => (
+                            <StarIcon 
+                              key={i} 
+                              className={`w-5 h-5 ${i < evaluationResult.score ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} 
+                            />
+                          ))}
+                           <span className="ml-2 text-sm text-gray-700">({evaluationResult.score}/5)</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -407,7 +516,7 @@ const AnalysisInterface = () => {
                   )}
                 </div>
 
-                {/* Tafsir Display (BARU) */}
+                {/* Tafsir Display */}
                 {analysisResult.tafsir && (
                   <>
                     <Separator />
@@ -467,6 +576,73 @@ const AnalysisInterface = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Interactive Q&A Section (SM screens) */}
+                <div className="block lg:hidden mt-6">
+                  {isGeneratingQuestion && (
+                    <div className="text-center py-6">
+                      <div className="animate-spin w-6 h-6 border-3 border-blue-200 border-t-blue-500 rounded-full mx-auto mb-2"></div>
+                      <p className="text-sm text-gray-500">Menghasilkan pertanyaan refleksi...</p>
+                    </div>
+                  )}
+
+                  {analysisResult && generatedQuestion && !isGeneratingQuestion && (
+                    <>
+                      <Separator className="my-6" />
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-3">Pertanyaan Refleksi:</h4>
+                        <Card className="border-blue-200 bg-blue-50">
+                          <CardContent className="p-4">
+                            <p className="text-gray-800 mb-4 text-justify">{generatedQuestion}</p>
+                            <Textarea
+                              placeholder="Masukkan jawaban Anda di sini..."
+                              value={userAnswer}
+                              onChange={(e) => setUserAnswer(e.target.value)}
+                              className="min-h-24 border-blue-300 focus:border-blue-500 mb-3"
+                            />
+                            <Button
+                              onClick={handleAnswerSubmit}
+                              disabled={isEvaluatingAnswer || !userAnswer.trim()}
+                              className="w-full bg-blue-600 hover:bg-blue-700"
+                            >
+                              {isEvaluatingAnswer ? (
+                                <>
+                                  <Zap className="w-4 h-4 mr-2 animate-pulse" />
+                                  Mengevaluasi...
+                                </>
+                              ) : (
+                                "Kirim Jawaban"
+                              )}
+                            </Button>
+                            {interactionError && <p className="text-red-500 text-sm mt-2">{interactionError}</p>}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </>
+                  )}
+
+                  {evaluationResult && !isEvaluatingAnswer && (
+                    <div className="mt-4">
+                      <h5 className="text-md font-semibold text-gray-900 mb-2">Evaluasi Jawaban Anda:</h5>
+                      <Card className="border-green-200 bg-green-50">
+                        <CardContent className="p-4">
+                          <p className="text-gray-700 text-sm mb-2 text-justify">{evaluationResult.feedback}</p>
+                          <div className="flex items-center">
+                            <p className="text-sm font-medium text-gray-600 mr-2">Skor:</p>
+                            {[...Array(5)].map((_, i) => (
+                              <StarIcon 
+                                key={i} 
+                                className={`w-5 h-5 ${i < evaluationResult.score ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} 
+                              />
+                            ))}
+                             <span className="ml-2 text-sm text-gray-700">({evaluationResult.score}/5)</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+                {/* End Interactive Q&A Section */}
               </div>
             )}
           </CardContent>
@@ -475,5 +651,23 @@ const AnalysisInterface = () => {
     </div>
   );
 };
+
+// Helper Star Icon component (can be moved to a separate ui file if preferred)
+const StarIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+);
 
 export default AnalysisInterface;
