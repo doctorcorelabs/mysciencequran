@@ -82,7 +82,7 @@ app.post('/api/ai/analyze', async (req, res) => {
 // --- NEW PROXY ENDPOINTS FOR INTERACTIVE AI FEATURES ---
 
 // Proxy for generating a question
-app.post('/api/interactive/generate-question', async (req, res) => {
+app.post('/api/ai/generate-question', async (req, res) => {
   try {
     const response = await fetch('https://worker-ai.daivanfebrijuansetiya.workers.dev/api/ai/generate-question', {
       method: 'POST',
@@ -101,7 +101,7 @@ app.post('/api/interactive/generate-question', async (req, res) => {
 });
 
 // Proxy for evaluating an answer
-app.post('/api/interactive/evaluate-answer', async (req, res) => {
+app.post('/api/ai/evaluate-answer', async (req, res) => {
   try {
     const response = await fetch('https://worker-ai.daivanfebrijuansetiya.workers.dev/api/ai/evaluate-answer', {
       method: 'POST',
