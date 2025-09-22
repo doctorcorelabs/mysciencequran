@@ -21,7 +21,7 @@ const iconMap: { [key: string]: React.ElementType } = {
   Search: Search,
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787';
 
 const AnalysisInterface = () => {
   const [inputText, setInputText] = useState("");
@@ -272,7 +272,7 @@ const AnalysisInterface = () => {
             
             return {
               ...conn, field, description, examples,
-              icon: iconMap[conn.icon] ? React.createElement(iconMap[conn.icon], { className: "w-6 h-6" }) : null
+              icon: iconMap[conn.icon] ? React.createElement(iconMap[conn.icon], { className: "w-6 h-6" }) : React.createElement(Lightbulb, { className: "w-6 h-6" })
             };
           });
           

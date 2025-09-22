@@ -1,7 +1,7 @@
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
+
 
 export interface Env {
-	GEMINI_API_KEY: string;
+    OPENROUTER_API_KEY: string;
 }
 
 interface AIRequestBody {
@@ -16,7 +16,8 @@ interface AIRequestBody {
 const ALLOWED_ORIGINS: string[] = [
 	'https://mysciencequran.daivanlabs.com', // Produksi
 	'https://neuroquran.daivanlabs.com',     // Domain baru
-	'http://localhost:8080'                 // Development Lokal (sesuaikan port jika perlu)
+	'http://localhost:8080',                 // Development Lokal
+	'http://127.0.0.1:8080'                  // Development Lokal (alternative)
 ];
 const EQURAN_API_BASE = 'https://equran.id/api/v2';
 
@@ -24,43 +25,31 @@ const EQURAN_API_BASE = 'https://equran.id/api/v2';
 function addCorsHeaders(response: Response, requestOrigin: string | null): Response {
 	if (requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)) {
 		response.headers.set('Access-Control-Allow-Origin', requestOrigin);
-	} else if (ALLOWED_ORIGINS.length > 0) {
-        if (!requestOrigin && ALLOWED_ORIGINS.length > 0) {
-             response.headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGINS[0]);
-        }
-  }
+	} else {
+		// Default ke localhost:8080 jika origin tidak ada dan mode development
+		response.headers.set('Access-Control-Allow-Origin', 'http://localhost:8080');
+	}
 	response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 	response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Accept-Language');
 	response.headers.set('Vary', 'Origin');
+	response.headers.set('Access-Control-Allow-Credentials', 'true');
 	return response;
 }
 
 // --- NEW FUNCTION: Handle Question Generation ---
 async function handleQuestionGeneration(request: Request, env: Env): Promise<Response> {
-	const requestOrigin = request.headers.get('Origin');
-	try {
-		const { contextText } = (await request.json()) as { contextText: string };
+   const requestOrigin = request.headers.get('Origin');
+   try {
+	   const { contextText } = (await request.json()) as { contextText: string };
 
-		if (!contextText) {
-			return addCorsHeaders(new Response(JSON.stringify({ code: 400, message: 'Missing contextText for question generation.' }), {
-				headers: { 'Content-Type': 'application/json' },
-				status: 400,
-			}), requestOrigin);
-		}
+	   if (!contextText) {
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 400, message: 'Missing contextText for question generation.' }), {
+			   headers: { 'Content-Type': 'application/json' },
+			   status: 400,
+		   }), requestOrigin);
+	   }
 
-		const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-		const modelName = 'gemini-1.5-flash-latest';
-		const callConfig = {
-			safetySettings: [
-				{ category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-				{ category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-				{ category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-				{ category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-			],
-			responseMimeType: 'text/plain', // Expecting JSON in a plain text response, then parsing
-		};
-
-		const PROMPT_GENERATE_QUESTION = `Anda adalah asisten AI yang cerdas. Berdasarkan teks berikut, buatlah SATU pertanyaan terbuka yang relevan dan memancing pemikiran dalam Bahasa Indonesia. Pertanyaan harus berkaitan langsung dengan isi teks yang diberikan.
+	   const PROMPT_GENERATE_QUESTION = `Anda adalah asisten AI yang cerdas. Berdasarkan teks berikut, buatlah SATU pertanyaan terbuka yang relevan dan memancing pemikiran dalam Bahasa Indonesia. Pertanyaan harus berkaitan langsung dengan isi teks yang diberikan.
 
 Teks Konteks:
 "${contextText}"
@@ -71,75 +60,73 @@ Format output Anda HARUS berupa JSON dengan struktur berikut:
 }
 Pastikan seluruh konten pertanyaan dalam Bahasa Indonesia. Jangan sertakan teks lain di luar format JSON ini.`;
 
-		const contentsForApi = [{ role: 'user', parts: [{ text: PROMPT_GENERATE_QUESTION }] }];
-		const streamResult = await ai.models.generateContentStream({ model: modelName, contents: contentsForApi, config: callConfig });
-		
-		let accumulatedText = "";
-		for await (const chunk of streamResult) {
-			if (chunk && chunk.text && typeof chunk.text === 'string') {
-				accumulatedText += chunk.text;
-			}
-		}
-		let text = accumulatedText;
-		// Extract JSON from markdown code block if present
-		const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
-		text = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
+	   const openrouterPayload = {
+		   model: "openai/gpt-oss-120b",
+		   messages: [
+			   {
+				   role: "user",
+				   content: PROMPT_GENERATE_QUESTION
+			   }
+		   ]
+	   };
 
-		try {
-			const result = JSON.parse(text);
-			if (!result.question || typeof result.question !== 'string') {
-				throw new Error('AI response for question generation is not in the expected format.');
-			}
-			return addCorsHeaders(new Response(JSON.stringify({ code: 200, question: result.question }), {
-				headers: { 'Content-Type': 'application/json' }, status: 200,
-			}), requestOrigin);
-		} catch (parseError: any) {
-			console.error('Failed to parse question generation AI response as JSON:', parseError.message, 'Raw text:', text);
-			return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: 'AI response for question generation could not be parsed. Raw: ' + text }), {
-				headers: { 'Content-Type': 'application/json' }, status: 500,
-			}), requestOrigin);
-		}
+	   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+		   method: "POST",
+		   headers: {
+			   "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+			   "Content-Type": "application/json"
+		   },
+		   body: JSON.stringify(openrouterPayload)
+	   });
+	   const data: any = await response.json();
+	   let text = data.choices && data.choices[0] && data.choices[0].message && typeof data.choices[0].message.content === 'string' ? data.choices[0].message.content.trim() : "";
+	   // Extract JSON from markdown code block if present
+	   const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
+	   text = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
 
-	} catch (error: any) {
-		console.error('Error during question generation:', error);
-		return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: `Question generation failed: ${error.message}` }), {
-			headers: { 'Content-Type': 'application/json' }, status: 500,
-		}), requestOrigin);
-	}
+	   try {
+		   const result = JSON.parse(text);
+		   if (!result.question || typeof result.question !== 'string') {
+			   throw new Error('AI response for question generation is not in the expected format.');
+		   }
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 200, question: result.question }), {
+			   headers: { 'Content-Type': 'application/json' }, status: 200,
+		   }), requestOrigin);
+	   } catch (parseError: any) {
+		   console.error('Failed to parse question generation AI response as JSON:', parseError.message, 'Raw text:', text);
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: 'AI response for question generation could not be parsed. Raw: ' + text }), {
+			   headers: { 'Content-Type': 'application/json' }, status: 500,
+		   }), requestOrigin);
+	   }
+
+   } catch (error: any) {
+	   console.error('Error during question generation:', error);
+	   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: `Question generation failed: ${error.message}` }), {
+		   headers: { 'Content-Type': 'application/json' }, status: 500,
+	   }), requestOrigin);
+   }
 }
 
 // --- NEW FUNCTION: Handle Answer Evaluation ---
 async function handleAnswerEvaluation(request: Request, env: Env): Promise<Response> {
-	const requestOrigin = request.headers.get('Origin');
-	try {
-		const { question, userAnswer } = (await request.json()) as { question: string; userAnswer: string };
+   const requestOrigin = request.headers.get('Origin');
+   try {
+	   const { question, userAnswer } = (await request.json()) as { question: string; userAnswer: string };
 
-		if (!question || !userAnswer) {
-			return addCorsHeaders(new Response(JSON.stringify({ code: 400, message: 'Missing question or userAnswer for evaluation.' }), {
-				headers: { 'Content-Type': 'application/json' },
-				status: 400,
-			}), requestOrigin);
-		}
+	   if (!question || !userAnswer) {
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 400, message: 'Missing question or userAnswer for evaluation.' }), {
+			   headers: { 'Content-Type': 'application/json' },
+			   status: 400,
+		   }), requestOrigin);
+	   }
 
-		const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-		const modelName = 'gemini-1.5-flash-latest';
-		const callConfig = {
-			safetySettings: [
-				{ category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-				{ category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-				{ category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-				{ category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-			],
-			responseMimeType: 'text/plain', // Expecting JSON in a plain text response, then parsing
-		};
-
-		const PROMPT_EVALUATE_ANSWER = `Anda adalah seorang evaluator AI yang bijaksana. Tugas Anda adalah mengevaluasi jawaban pengguna terhadap sebuah pertanyaan.
+	   const PROMPT_EVALUATE_ANSWER = `Anda adalah seorang evaluator AI yang bijaksana. Tugas Anda adalah mengevaluasi jawaban pengguna terhadap sebuah pertanyaan.
 Pertanyaan yang Diajukan: "${question}"
 Jawaban Pengguna: "${userAnswer}"
 
 Berikan evaluasi Anda dalam Bahasa Indonesia. Evaluasi harus mencakup:
-1.  \`feedback\`: Komentar kualitatif singkat (1-2 kalimat) mengenai kualitas dan relevansi jawaban pengguna.
-2.  \`score\`: Skor numerik antara 1 (sangat kurang) hingga 5 (sangat baik) yang mencerminkan pemahaman pengguna berdasarkan jawabannya.
+- feedback: Komentar kualitatif singkat (1-2 kalimat) mengenai kualitas dan relevansi jawaban pengguna.
+- score: Skor numerik antara 1 (sangat kurang) hingga 5 (sangat baik) yang mencerminkan pemahaman pengguna berdasarkan jawabannya.
 
 Format output Anda HARUS berupa JSON dengan struktur berikut:
 {
@@ -147,77 +134,70 @@ Format output Anda HARUS berupa JSON dengan struktur berikut:
   "score": <angka skor antara 1-5>
 }
 Pastikan seluruh konten feedback dalam Bahasa Indonesia. Jangan sertakan teks lain di luar format JSON ini.`;
-		
-		const contentsForApi = [{ role: 'user', parts: [{ text: PROMPT_EVALUATE_ANSWER }] }];
-		const streamResult = await ai.models.generateContentStream({ model: modelName, contents: contentsForApi, config: callConfig });
 
-		let accumulatedText = "";
-		for await (const chunk of streamResult) {
-			if (chunk && chunk.text && typeof chunk.text === 'string') {
-				accumulatedText += chunk.text;
-			}
-		}
-		let text = accumulatedText;
-		// Extract JSON from markdown code block if present
-		const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
-		text = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
-		
-		try {
-			const result = JSON.parse(text);
-			if (typeof result.feedback !== 'string' || typeof result.score !== 'number') {
-				throw new Error('AI response for answer evaluation is not in the expected format.');
-			}
-			return addCorsHeaders(new Response(JSON.stringify({ code: 200, feedback: result.feedback, score: result.score }), {
-				headers: { 'Content-Type': 'application/json' }, status: 200,
-			}), requestOrigin);
-		} catch (parseError: any) {
-			console.error('Failed to parse answer evaluation AI response as JSON:', parseError.message, 'Raw text:', text);
-			return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: 'AI response for answer evaluation could not be parsed. Raw: ' + text }), {
-				headers: { 'Content-Type': 'application/json' }, status: 500,
-			}), requestOrigin);
-		}
+	   const openrouterPayload = {
+		   model: "openai/gpt-oss-120b",
+		   messages: [
+			   {
+				   role: "user",
+				   content: PROMPT_EVALUATE_ANSWER
+			   }
+		   ]
+	   };
 
-	} catch (error: any) {
-		console.error('Error during answer evaluation:', error);
-		return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: `Answer evaluation failed: ${error.message}` }), {
-			headers: { 'Content-Type': 'application/json' }, status: 500,
-		}), requestOrigin);
-	}
+	   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+		   method: "POST",
+		   headers: {
+			   "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+			   "Content-Type": "application/json"
+		   },
+		   body: JSON.stringify(openrouterPayload)
+	   });
+	   const data: any = await response.json();
+	   let text = data.choices && data.choices[0] && data.choices[0].message && typeof data.choices[0].message.content === 'string' ? data.choices[0].message.content.trim() : "";
+	   // Extract JSON from markdown code block if present
+	   const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
+	   text = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
+
+	   try {
+		   const result = JSON.parse(text);
+		   if (typeof result.feedback !== 'string' || typeof result.score !== 'number') {
+			   throw new Error('AI response for answer evaluation is not in the expected format.');
+		   }
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 200, feedback: result.feedback, score: result.score }), {
+			   headers: { 'Content-Type': 'application/json' }, status: 200,
+		   }), requestOrigin);
+	   } catch (parseError: any) {
+		   console.error('Failed to parse answer evaluation AI response as JSON:', parseError.message, 'Raw text:', text);
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: 'AI response for answer evaluation could not be parsed. Raw: ' + text }), {
+			   headers: { 'Content-Type': 'application/json' }, status: 500,
+		   }), requestOrigin);
+	   }
+
+   } catch (error: any) {
+	   console.error('Error during answer evaluation:', error);
+	   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: `Answer evaluation failed: ${error.message}` }), {
+		   headers: { 'Content-Type': 'application/json' }, status: 500,
+	   }), requestOrigin);
+   }
 }
 
 
 async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
-	const requestOrigin = request.headers.get('Origin');
-	try {
-		const { verse, tafsir } = (await request.json()) as AIRequestBody;
+   const requestOrigin = request.headers.get('Origin');
+   try {
+	   const { verse, tafsir } = (await request.json()) as AIRequestBody;
 
-		if (!verse || (!verse.translation && !verse.arabic)) {
-			return addCorsHeaders(new Response(JSON.stringify({ code: 400, message: 'Missing verse data for AI analysis.' }), {
-				headers: { 'Content-Type': 'application/json' },
-				status: 400,
-			}), requestOrigin);
-		}
-		
-		const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-		const modelName = 'gemini-1.5-flash-latest';
-		const callConfig = { 
-			safetySettings: [
-				{ category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-				{ category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-				{ category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-				{ category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-			],
-			responseMimeType: 'text/plain', 
-		};
+	   if (!verse || (!verse.translation && !verse.arabic)) {
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 400, message: 'Missing verse data for AI analysis.' }), {
+			   headers: { 'Content-Type': 'application/json' },
+			   status: 400,
+		   }), requestOrigin);
+	   }
 
-		const PURE_PROMPT_TEXT = `Analisa ayat Al-Quran berikut beserta tafsirnya (jika tersedia) untuk mencari keterkaitan ilmiah. Berikan output dalam format array JSON, di mana setiap objek mewakili sebuah keterkaitan ilmiah. SELURUH KONTEN TEKS DALAM RESPONS JSON (khususnya "field", "description", dan "examples") HARUS SEPENUHNYA DALAM BAHASA INDONESIA, JANGAN MENGGUNAKAN BAHASA INGGRIS SAMA SEKALI.
+	   const PURE_PROMPT_TEXT = `Analisa ayat Al-Quran berikut beserta tafsirnya (jika tersedia) untuk mencari keterkaitan ilmiah. Berikan output dalam format array JSON, di mana setiap objek mewakili sebuah keterkaitan ilmiah. SELURUH KONTEN TEKS DALAM RESPONS JSON (khususnya "field", "description", dan "examples") HARUS SEPENUHNYA DALAM BAHASA INDONESIA, JANGAN MENGGUNAKAN BAHASA INGGRIS SAMA SEKALI.
 
 Setiap objek harus memiliki kunci-kunci berikut:
-- "field" (string, contoh: "Biologi Sel", "Astronomi", "Refleksi Umum") - harus dalam Bahasa Indonesia.
-- "icon" (string, contoh: "Microscope", "Globe", "Atom", "Heart", "Zap", "Lightbulb", "BookOpen", "Search" - pilih nama icon Lucide-react yang paling relevan).
-- "description" (string, penjelasan detail) - harus dalam Bahasa Indonesia.
-- "examples" (array of strings, contoh-contoh konkret) - harus dalam Bahasa Indonesia.
-- "confidence" (angka antara 0-100, untuk keterkaitan ilmiah; bisa 0 atau rendah untuk "Refleksi Umum").
 
 Prioritas:
 1.  Coba temukan keterkaitan ilmiah spesifik.
@@ -230,76 +210,75 @@ Verse (Arabic): ${verse.arabic || 'N/A'}
 Verse (Translation): ${verse.translation || 'N/A'}
 Tafsir: ${tafsir || 'N/A'}
 
+
 Contoh Format Output (semua teks dalam Bahasa Indonesia):
-\`\`\`json
 [
-  {
-    "field": "Embriologi",
-    "icon": "Microscope",
-    "description": "Ayat ini menjelaskan tahapan perkembangan embrio manusia yang sejalan dengan penemuan ilmiah modern.",
-    "examples": ["Pembentukan nutfah (zigot)", "Perkembangan menjadi 'alaqah (segumpal darah)"],
-    "confidence": 95
-  },
-  {
-    "field": "Refleksi Umum",
-    "icon": "Lightbulb",
-    "description": "Ayat ini mengajak manusia untuk merenungkan ciptaan Allah dan mencari ilmu pengetahuan.",
-    "examples": ["Memahami kehidupan dari perspektif penciptaan", "Meneliti fenomena alam sebagai tanda kebesaran Allah"],
-    "confidence": 50
-  }
+	{
+		"field": "Embriologi",
+		"icon": "Microscope",
+		"description": "Ayat ini menjelaskan tahapan perkembangan embrio manusia yang sejalan dengan penemuan ilmiah modern.",
+		"examples": ["Pembentukan nutfah (zigot)", "Perkembangan menjadi 'alaqah (segumpal darah)"],
+		"confidence": 95
+	},
+	{
+		"field": "Refleksi Umum",
+		"icon": "Lightbulb",
+		"description": "Ayat ini mengajak manusia untuk merenungkan ciptaan Allah dan mencari ilmu pengetahuan.",
+		"examples": ["Memahami kehidupan dari perspektif penciptaan", "Meneliti fenomena alam sebagai tanda kebesaran Allah"],
+		"confidence": 50
+	}
 ]
-\`\`\`
 
 Berikan hanya array JSON dalam respons Anda, dibungkus dalam blok kode markdown, tanpa teks tambahan atau pemformatan markdown di luar JSON. INGAT SEMUA KONTEN HARUS DALAM BAHASA INDONESIA. JANGAN GUNAKAN BAHASA INGGRIS.`;
 
-		const contentsForApi = [{ role: 'user', parts: [{ text: PURE_PROMPT_TEXT }] }];
-		const streamResult = await ai.models.generateContentStream({ model: modelName, contents: contentsForApi, config: callConfig });
+	   const openrouterPayload = {
+		   model: "openai/gpt-oss-120b",
+		   messages: [
+			   {
+				   role: "user",
+				   content: PURE_PROMPT_TEXT
+			   }
+		   ]
+	   };
 
-		let accumulatedText = "";
-		for await (const chunk of streamResult) {
-			if (chunk && chunk.text && typeof chunk.text === 'string') {
-				accumulatedText += chunk.text;
-			}
-		}
-		let text = accumulatedText;
-		const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
-		text = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
+	   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+		   method: "POST",
+		   headers: {
+			   "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+			   "Content-Type": "application/json"
+		   },
+		   body: JSON.stringify(openrouterPayload)
+	   });
+	   const data: any = await response.json();
+	   let text = data.choices && data.choices[0] && data.choices[0].message && typeof data.choices[0].message.content === 'string' ? data.choices[0].message.content.trim() : "";
+	   const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
+	   text = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
 
-		let scientificConnections;
-		try {
-			scientificConnections = JSON.parse(text);
-			if (!Array.isArray(scientificConnections)) throw new Error('AI response is not a JSON array.');
-			// Language validation logic (diasumsikan tetap sama dan berfungsi)
-			const commonEnglishTerms = [ /* ... */ ];
-			const translations: Record<string, string> = { /* ... */ };
-			const isEnglishText = (txt: string): boolean => { /* ... */ return false; };
-			const translateText = (txt: string): string => { /* ... */ return txt; };
-			scientificConnections = scientificConnections.map((conn: any) => { /* ... */ return conn; });
+	   let scientificConnections;
+	   try {
+		   scientificConnections = JSON.parse(text);
+		   if (!Array.isArray(scientificConnections)) throw new Error('AI response is not a JSON array.');
+		   // Language validation logic (diasumsikan tetap sama dan berfungsi)
+		   // ...existing code...
+	   } catch (parseError: any) {
+		   console.error('Failed to parse AI response as JSON:', parseError.message, 'Raw text:', text);
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: 'AI response could not be parsed. Raw: ' + text }), {
+			   headers: { 'Content-Type': 'application/json' }, status: 500,
+		   }), requestOrigin);
+	   }
 
-		} catch (parseError: any) {
-			console.error('Failed to parse AI response as JSON:', parseError.message, 'Raw text:', text);
-			return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: 'AI response could not be parsed. Raw: ' + text }), {
-				headers: { 'Content-Type': 'application/json' }, status: 500,
-			}), requestOrigin);
-		}
+	   return addCorsHeaders(new Response(JSON.stringify({
+		   code: 200, message: 'AI analysis successful',
+		   data: { verse, tafsir, scientificConnections },
+	   }), { headers: { 'Content-Type': 'application/json' }, status: 200 }), requestOrigin);
 
-		return addCorsHeaders(new Response(JSON.stringify({
-			code: 200, message: 'AI analysis successful',
-			data: { verse, tafsir, scientificConnections },
-		}), { headers: { 'Content-Type': 'application/json' }, status: 200 }), requestOrigin);
-
-	} catch (error: any) {
-		console.error('Error during AI analysis:', error);
-		let errorMessage = error.message;
-		if (error.name === 'GoogleGenerativeAIResponseError' && error.response && error.response.error) {
-			errorMessage = `GoogleGenerativeAIResponseError: ${error.response.error.message} (Code: ${error.response.error.code}, Status: ${error.response.error.status})`;
-		} else if (error.cause) {
-			errorMessage += ` Caused by: ${JSON.stringify(error.cause)}`;
-		}
-		return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: `AI analysis failed: ${errorMessage}` }), {
-			headers: { 'Content-Type': 'application/json' }, status: 500,
-		}), requestOrigin);
-	}
+   } catch (error: any) {
+	   console.error('Error during AI analysis:', error);
+	   let errorMessage = error.message;
+	   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: `AI analysis failed: ${errorMessage}` }), {
+		   headers: { 'Content-Type': 'application/json' }, status: 500,
+	   }), requestOrigin);
+   }
 }
 
 async function proxyRequest(request: Request, targetUrl: string): Promise<Response> {
