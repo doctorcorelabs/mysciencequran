@@ -15,6 +15,7 @@ interface AIRequestBody {
 
 const ALLOWED_ORIGINS: string[] = [
 	'https://mysciencequran.daivanlabs.com', // Produksi
+	'https://neuroquran.daivanlabs.com',     // Domain baru
 	'http://localhost:8080'                 // Development Lokal (sesuaikan port jika perlu)
 ];
 const EQURAN_API_BASE = 'https://equran.id/api/v2';
