@@ -25,7 +25,7 @@ const Index = () => {
           <div className="max-w-7xl mx-auto px-4 py-16">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Mengapa MyScienceQuran?
+                Mengapa Neuro-Quran Insight?
               </h2>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
                 Platform inovatif yang memadukan kearifan Al-Quran dengan penemuan sains modern

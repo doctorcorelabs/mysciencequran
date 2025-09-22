@@ -13,7 +13,7 @@ const Footer = () => {
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="text-white font-bold">MyScienceQuran</h3>
+                <h3 className="text-white font-bold">Neuro-Quran Insight</h3>
                 <p className="text-xs text-emerald-400">Al-Quran & Sains Modern</p>
               </div>
             </div>
