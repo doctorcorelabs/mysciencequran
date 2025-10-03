@@ -1,7 +1,6 @@
 // Simple Netlify Function without Express
 // Handles API proxying with proper CORS
-
-import fetch from 'node-fetch';
+// Uses native fetch (Node 18+)
 
 // CORS headers
 const corsHeaders = {
