@@ -525,6 +525,7 @@ const AnalysisInterface = () => {
                       <Card className="border-gray-200 bg-white">
                         <CardContent className="p-4">
                           <p className="text-gray-700 text-sm whitespace-pre-line text-justify">{analysisResult.tafsir}</p>
+                          {/* Link to Eksplorasi Tafsir removed */}
                         </CardContent>
                       </Card>
                     </div>

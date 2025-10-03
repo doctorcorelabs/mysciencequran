@@ -36,7 +36,48 @@ function addCorsHeaders(response: Response, requestOrigin: string | null): Respo
 	return response;
 }
 
-// --- NEW FUNCTION: Handle Question Generation ---
+// Helper function for OpenRouter API calls with better error handling
+async function callOpenRouterAPI(payload: any, apiKey: string): Promise<string> {
+	const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+		method: "POST",
+		headers: {
+			"Authorization": `Bearer ${apiKey}`,
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify(payload)
+	});
+	
+	if (!response.ok) {
+		const errorText = await response.text();
+		console.error('OpenRouter API error:', response.status, errorText);
+		throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+	}
+	
+	const data: any = await response.json();
+	
+	// Check for OpenRouter-specific errors
+	if (data.error) {
+		console.error('OpenRouter returned error:', data.error);
+		throw new Error(`OpenRouter error: ${data.error.message || JSON.stringify(data.error)}`);
+	}
+	
+	// Check if response has choices
+	if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+		console.error('Invalid OpenRouter response structure:', data);
+		throw new Error('Invalid response structure from OpenRouter API');
+	}
+	
+	const content = data.choices[0].message.content?.trim() || "";
+	
+	// Check if content is empty
+	if (!content) {
+		console.error('OpenRouter returned empty content');
+		throw new Error('OpenRouter API returned empty response content');
+	}
+	
+	return content;
+}
+
 async function handleQuestionGeneration(request: Request, env: Env): Promise<Response> {
    const requestOrigin = request.headers.get('Origin');
    try {
@@ -70,22 +111,14 @@ Pastikan seluruh konten pertanyaan dalam Bahasa Indonesia. Jangan sertakan teks 
 		   ]
 	   };
 
-	   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-		   method: "POST",
-		   headers: {
-			   "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
-			   "Content-Type": "application/json"
-		   },
-		   body: JSON.stringify(openrouterPayload)
-	   });
-	   const data: any = await response.json();
-	   let text = data.choices && data.choices[0] && data.choices[0].message && typeof data.choices[0].message.content === 'string' ? data.choices[0].message.content.trim() : "";
+	   const text = await callOpenRouterAPI(openrouterPayload, env.OPENROUTER_API_KEY);
+	   
 	   // Extract JSON from markdown code block if present
 	   const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
-	   text = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
+	   const cleanText = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
 
 	   try {
-		   const result = JSON.parse(text);
+		   const result = JSON.parse(cleanText);
 		   if (!result.question || typeof result.question !== 'string') {
 			   throw new Error('AI response for question generation is not in the expected format.');
 		   }
@@ -93,8 +126,8 @@ Pastikan seluruh konten pertanyaan dalam Bahasa Indonesia. Jangan sertakan teks 
 			   headers: { 'Content-Type': 'application/json' }, status: 200,
 		   }), requestOrigin);
 	   } catch (parseError: any) {
-		   console.error('Failed to parse question generation AI response as JSON:', parseError.message, 'Raw text:', text);
-		   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: 'AI response for question generation could not be parsed. Raw: ' + text }), {
+		   console.error('Failed to parse question generation AI response as JSON:', parseError.message, 'Raw text:', cleanText);
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: 'AI response for question generation could not be parsed. Raw: ' + cleanText }), {
 			   headers: { 'Content-Type': 'application/json' }, status: 500,
 		   }), requestOrigin);
 	   }
@@ -185,8 +218,13 @@ Pastikan seluruh konten feedback dalam Bahasa Indonesia. Jangan sertakan teks la
 
 async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
    const requestOrigin = request.headers.get('Origin');
+   
+   let verse, tafsir;
+   
    try {
-	   const { verse, tafsir } = (await request.json()) as AIRequestBody;
+	   const requestData = (await request.json()) as AIRequestBody;
+	   verse = requestData.verse;
+	   tafsir = requestData.tafsir;
 
 	   if (!verse || (!verse.translation && !verse.arabic)) {
 		   return addCorsHeaders(new Response(JSON.stringify({ code: 400, message: 'Missing verse data for AI analysis.' }), {
@@ -241,43 +279,66 @@ Berikan hanya array JSON dalam respons Anda, dibungkus dalam blok kode markdown,
 		   ]
 	   };
 
-	   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-		   method: "POST",
-		   headers: {
-			   "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
-			   "Content-Type": "application/json"
-		   },
-		   body: JSON.stringify(openrouterPayload)
-	   });
-	   const data: any = await response.json();
-	   let text = data.choices && data.choices[0] && data.choices[0].message && typeof data.choices[0].message.content === 'string' ? data.choices[0].message.content.trim() : "";
-	   const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
-	   text = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
-
-	   let scientificConnections;
 	   try {
-		   scientificConnections = JSON.parse(text);
-		   if (!Array.isArray(scientificConnections)) throw new Error('AI response is not a JSON array.');
-		   // Language validation logic (diasumsikan tetap sama dan berfungsi)
-		   // ...existing code...
-	   } catch (parseError: any) {
-		   console.error('Failed to parse AI response as JSON:', parseError.message, 'Raw text:', text);
-		   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: 'AI response could not be parsed. Raw: ' + text }), {
-			   headers: { 'Content-Type': 'application/json' }, status: 500,
-		   }), requestOrigin);
+		   const text = await callOpenRouterAPI(openrouterPayload, env.OPENROUTER_API_KEY);
+		   const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
+		   const cleanText = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
+
+		   let scientificConnections;
+		   try {
+			   scientificConnections = JSON.parse(cleanText);
+			   if (!Array.isArray(scientificConnections)) throw new Error('AI response is not a JSON array.');
+			   // Language validation logic (diasumsikan tetap sama dan berfungsi)
+			   // ...existing code...
+		   } catch (parseError: any) {
+			   console.error('Failed to parse AI response as JSON:', parseError.message, 'Raw text:', cleanText);
+			   
+			   // Fallback: Return empty analysis instead of error
+			   scientificConnections = [];
+		   }
+
+		   return addCorsHeaders(new Response(JSON.stringify({
+			   code: 200, message: 'AI analysis completed',
+			   data: { verse, tafsir, scientificConnections },
+		   }), { headers: { 'Content-Type': 'application/json' }, status: 200 }), requestOrigin);
+
+	   } catch (aiError: any) {
+		   console.error('AI API failed:', aiError.message);
+		   
+		   // Complete fallback: Return basic analysis
+		   const fallbackConnections = [
+			   {
+				   field: "Refleksi Umum",
+				   icon: "Lightbulb",
+				   description: "Ayat ini mengandung hikmah dan pelajaran yang dapat direfleksikan dalam kehidupan sehari-hari.",
+				   examples: ["Perenungan terhadap makna ayat", "Implementasi nilai-nilai dalam kehidupan"],
+				   confidence: 60
+			   }
+		   ];
+		   
+		   return addCorsHeaders(new Response(JSON.stringify({
+			   code: 200, message: 'Analysis completed with fallback method',
+			   data: { verse, tafsir, scientificConnections: fallbackConnections },
+		   }), { headers: { 'Content-Type': 'application/json' }, status: 200 }), requestOrigin);
 	   }
-
-	   return addCorsHeaders(new Response(JSON.stringify({
-		   code: 200, message: 'AI analysis successful',
-		   data: { verse, tafsir, scientificConnections },
-	   }), { headers: { 'Content-Type': 'application/json' }, status: 200 }), requestOrigin);
-
    } catch (error: any) {
 	   console.error('Error during AI analysis:', error);
-	   let errorMessage = error.message;
-	   return addCorsHeaders(new Response(JSON.stringify({ code: 500, message: `AI analysis failed: ${errorMessage}` }), {
-		   headers: { 'Content-Type': 'application/json' }, status: 500,
-	   }), requestOrigin);
+	   
+	   // Emergency fallback
+	   const emergencyConnections = [
+		   {
+			   field: "Analisis Tidak Tersedia",
+			   icon: "AlertCircle",
+			   description: "Maaf, analisis AI tidak dapat dilakukan saat ini. Silakan coba lagi nanti.",
+			   examples: ["Sistem sedang dalam pemeliharaan", "Cobalah beberapa saat lagi"],
+			   confidence: 0
+		   }
+	   ];
+	   
+	   return addCorsHeaders(new Response(JSON.stringify({
+		   code: 200, message: 'Emergency fallback used',
+		   data: { verse, tafsir, scientificConnections: emergencyConnections },
+	   }), { headers: { 'Content-Type': 'application/json' }, status: 200 }), requestOrigin);
    }
 }
 
@@ -310,6 +371,136 @@ async function proxyRequest(request: Request, targetUrl: string): Promise<Respon
 	}
 }
 
+
+// --- NEW FUNCTION: Handle Mind Map Generation ---
+async function handleMindMapGeneration(request: Request, env: Env): Promise<Response> {
+   const requestOrigin = request.headers.get('Origin');
+   try {
+	   const { tafsir } = (await request.json()) as { tafsir: string };
+
+	   if (!tafsir) {
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 400, message: 'Missing tafsir text for mind map generation.' }), {
+			   headers: { 'Content-Type': 'application/json' },
+			   status: 400,
+		   }), requestOrigin);
+	   }
+
+   const PROMPT_MINDMAP = `Buat mind map dari tafsir berikut. Bagi menjadi beberapa topik utama dan sub-topik, jangan gabungkan semua isi dalam satu node. Setiap label maksimal 8 kata, ringkas, dan informatif.
+
+Teks Tafsir:
+"${tafsir}"
+
+Format output JSON:
+{
+  "nodes": [
+    {
+      "id": 0,
+      "label": "Inti Tafsir",
+      "children": [
+        {
+          "id": 1,
+          "label": "Topik Utama 1",
+          "children": [
+            { "id": 11, "label": "Sub-topik 1.1" },
+            { "id": 12, "label": "Sub-topik 1.2" }
+          ]
+        },
+        {
+          "id": 2,
+          "label": "Topik Utama 2",
+          "children": [
+            { "id": 21, "label": "Sub-topik 2.1" },
+            { "id": 22, "label": "Sub-topik 2.2" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Petunjuk:
+- Jangan gabungkan semua isi tafsir dalam satu node.
+- Buat minimal 3 node topik utama dan masing-masing minimal 2 sub-topik.
+- Semua label maksimal 8 kata, ringkas, dan informatif.
+- Semua konten dalam Bahasa Indonesia.
+Berikan hanya JSON tanpa penjelasan atau teks lain.`;
+
+	   const openrouterPayload = {
+		   model: "openai/gpt-oss-120b",
+		   messages: [
+			   {
+				   role: "user",
+				   content: PROMPT_MINDMAP
+			   }
+		   ]
+	   };
+
+	   try {
+		   const text = await callOpenRouterAPI(openrouterPayload, env.OPENROUTER_API_KEY);
+		   
+		   // Extract JSON from markdown code block if present
+		   const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
+		   const cleanText = jsonMatch && jsonMatch[1] ? jsonMatch[1] : text.trim();
+		   
+		   const mindMapData = JSON.parse(cleanText);
+		   
+		   if (mindMapData && mindMapData.nodes && Array.isArray(mindMapData.nodes)) {
+			   console.log('Successfully generated mind map with AI, nodes count:', mindMapData.nodes.length);
+			   return addCorsHeaders(new Response(JSON.stringify({
+				   code: 200, message: 'Mind map generated successfully with AI',
+				   data: mindMapData.nodes
+			   }), { headers: { 'Content-Type': 'application/json' }, status: 200 }), requestOrigin);
+		   } else {
+			   throw new Error('Invalid AI response structure');
+		   }
+	   } catch (aiError: any) {
+		   console.log('AI generation failed, using fallback:', aiError.message);
+		   
+           // FALLBACK: Bagi tafsir menjadi kalimat-kalimat, lalu ambil ringkasan berbasis kata
+           const sentences = tafsir
+             .split(/[.!?]+/)
+             .map(s => s.trim())
+             .filter(s => s.length > 0);
+
+           // Ambil maksimal 8 kalimat representatif
+           const selectedSentences = sentences.slice(0, 8);
+           
+          const fallbackNodes = selectedSentences.map((sentence, idx) => {
+             const words = sentence.split(/\s+/).filter(Boolean);
+            const maxWords = 14; // sedikit lebih panjang agar jelas
+             const label = words.slice(0, maxWords).join(' ') + (words.length > maxWords ? '…' : '');
+             return { id: idx, label };
+           });
+		   
+		   console.log('Generated fallback nodes count:', fallbackNodes.length);
+		   
+		   return addCorsHeaders(new Response(JSON.stringify({
+			   code: 200, message: 'Mind map generated with fallback method',
+			   data: fallbackNodes
+		   }), { headers: { 'Content-Type': 'application/json' }, status: 200 }), requestOrigin);
+	   }
+
+   } catch (error: any) {
+	   console.error('Error during mind map generation:', error);
+	   
+	   // Emergency fallback
+	   const emergencyNodes = [
+		   { id: 0, label: "Inti Tafsir" },
+		   { id: 1, label: "Poin Utama 1" },
+		   { id: 2, label: "Poin Utama 2" },
+		   { id: 3, label: "Poin Utama 3" }
+	   ];
+	   
+	   return addCorsHeaders(new Response(JSON.stringify({ 
+		   code: 200, 
+		   nodes: emergencyNodes,
+		   message: 'Emergency fallback used'
+	   }), {
+		   headers: { 'Content-Type': 'application/json' }, 
+		   status: 200,
+	   }), requestOrigin);
+   }
+}
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -346,6 +537,10 @@ export default {
 			return handleAnswerEvaluation(request, env);
 		}
 
-		return addCorsHeaders(new Response('Not Found. Supported routes: GET /api/quran/surah/:id, GET /api/quran/tafsir/:id, POST /api/ai/analyze, POST /api/ai/generate-question, POST /api/ai/evaluate-answer', { status: 404 }), requestOrigin);
+		if (request.method === 'POST' && url.pathname === '/api/ai/mindmap-tafsir') {
+			return handleMindMapGeneration(request, env);
+		}
+
+		return addCorsHeaders(new Response('Not Found. Supported routes: GET /api/quran/surah/:id, GET /api/quran/tafsir/:id, POST /api/ai/analyze, POST /api/ai/generate-question, POST /api/ai/evaluate-answer, POST /api/ai/mindmap-tafsir', { status: 404 }), requestOrigin);
 	},
 };
