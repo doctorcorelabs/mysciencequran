@@ -1,6 +1,7 @@
 // Simple Netlify Function without Express
 // Handles API proxying with proper CORS
 // Uses native fetch (Node 18+)
+// Updated: Added chatbot endpoint support - 2025-01-03
 
 // CORS headers
 const corsHeaders = {

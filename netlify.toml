@@ -2,6 +2,8 @@
   command = "npm install && rm -rf dist .vite && ./node_modules/.bin/vite build"
   functions = "netlify/functions"
   publish = "dist"
+  # Force function rebuild
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF"
 
 # Headers for CORS
 [[headers]]
