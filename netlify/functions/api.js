@@ -101,21 +101,72 @@ export const handler = async (event, context) => {
     // POST /api/ai/chatbot
     if (event.httpMethod === 'POST' && apiPath.includes('/ai/chatbot')) {
       console.log('Chatbot request');
-      const requestBody = JSON.parse(event.body || '{}');
+      console.log('Request body:', event.body);
       
-      const response = await fetch('https://worker-ai.daivanfebrijuansetiya.workers.dev/api/ai/chatbot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-      
-      const data = await response.json();
-      
-      return {
-        statusCode: response.status,
-        headers: corsHeaders,
-        body: JSON.stringify(data)
-      };
+      try {
+        const requestBody = JSON.parse(event.body || '{}');
+        console.log('Parsed request body:', requestBody);
+        
+        console.log('Calling worker-ai chatbot endpoint...');
+        const response = await fetch('https://worker-ai.daivanfebrijuansetiya.workers.dev/api/ai/chatbot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+        
+        console.log('Worker-ai response status:', response.status);
+        console.log('Worker-ai response headers:', response.headers);
+        
+        // Check if response is OK
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Worker-ai error response:', errorText);
+          return {
+            statusCode: response.status,
+            headers: corsHeaders,
+            body: JSON.stringify({ 
+              error: 'Worker AI error', 
+              status: response.status,
+              message: errorText
+            })
+          };
+        }
+        
+        // Try to parse JSON
+        const responseText = await response.text();
+        console.log('Worker-ai response text:', responseText);
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError);
+          return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ 
+              error: 'Invalid JSON from Worker AI',
+              rawResponse: responseText.substring(0, 200)
+            })
+          };
+        }
+        
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify(data)
+        };
+      } catch (error) {
+        console.error('Chatbot endpoint error:', error);
+        return {
+          statusCode: 500,
+          headers: corsHeaders,
+          body: JSON.stringify({ 
+            error: 'Chatbot request failed',
+            message: error.message
+          })
+        };
+      }
     }
 
     // POST /api/ai/generate-question
