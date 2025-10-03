@@ -11,7 +11,10 @@ import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 // Use relative URLs to avoid CORS issues
 // In production, API will be served from same domain via Netlify redirects
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8787');
+// Force use of same origin to prevent CORS issues
+const API_BASE_URL = (typeof window !== 'undefined' && window.location.hostname !== 'localhost') 
+  ? window.location.origin 
+  : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787');
 
 interface Message {
   id: string;
