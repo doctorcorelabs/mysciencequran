@@ -1,5 +1,5 @@
 [build]
-  command = "npm ci && ./node_modules/.bin/vite build"
+  command = "npm install && npm run build"
   functions = "netlify/functions"
   publish = "dist"
 
@@ -23,7 +23,7 @@
 # Node.js version for Netlify
 [build.environment]
   NODE_VERSION = "18"
-  NODE_ENV = "development"
+  NODE_ENV = "production"
 
 # Environment variables for production
 [context.production.environment]
