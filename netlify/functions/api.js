@@ -193,20 +193,42 @@ export const handler = async (event, context) => {
     };
   }
 
-  // Get the actual path - Netlify passes the full path including splat
-  // event.path will be something like "/.netlify/functions/api/ai/chatbot"
-  // We need to extract everything after "/api/"
-  let actualPath = event.path;
+  // Extract the actual API path from the request
+  // Priority: rawUrl > path > default
+  let actualPath = '/';
   
-  // If path contains /.netlify/functions/api, remove it to get the actual endpoint
-  if (actualPath.includes('/.netlify/functions/api')) {
-    actualPath = actualPath.replace('/.netlify/functions/api', '');
+  console.log('DEBUG - event.path:', event.path);
+  console.log('DEBUG - event.rawUrl:', event.rawUrl);
+  console.log('DEBUG - event.headers:', JSON.stringify(event.headers));
+  
+  // Try to get path from rawUrl first (most reliable)
+  if (event.rawUrl) {
+    try {
+      const urlObj = new URL(event.rawUrl);
+      actualPath = urlObj.pathname;
+      console.log('DEBUG - Path from rawUrl:', actualPath);
+    } catch (e) {
+      console.error('DEBUG - Error parsing rawUrl:', e);
+    }
   }
   
-  // If it doesn't start with /api, add it for consistent matching
-  if (!actualPath.startsWith('/api')) {
+  // Fallback: use event.path
+  if (actualPath === '/' && event.path) {
+    actualPath = event.path;
+    // Remove /.netlify/functions/api prefix if present
+    if (actualPath.includes('/.netlify/functions/api')) {
+      actualPath = actualPath.replace('/.netlify/functions/api', '');
+      if (!actualPath) actualPath = '/';
+    }
+    console.log('DEBUG - Path from event.path:', actualPath);
+  }
+  
+  // Ensure path starts with /api for consistent matching (if not root)
+  if (actualPath !== '/' && !actualPath.startsWith('/api')) {
     actualPath = '/api' + actualPath;
   }
+  
+  console.log('DEBUG - Final actualPath for routing:', actualPath);
 
   // Convert Netlify event to Express-like request
   const request = {

@@ -22,9 +22,10 @@
     Access-Control-Allow-Credentials = "true"
 
 # Redirect all API calls to Netlify Functions
+# Use proxy rewrite to pass the full path
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  to = "/.netlify/functions/api"
   status = 200
   force = true
 
