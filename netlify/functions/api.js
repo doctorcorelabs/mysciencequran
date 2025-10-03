@@ -229,13 +229,23 @@ export const handler = async (event, context) => {
 
     // No route matched
     console.log('No route matched for:', apiPath);
+    console.log('Method was:', event.httpMethod);
+    console.log('Full event:', JSON.stringify(event, null, 2));
     return {
       statusCode: 404,
       headers: corsHeaders,
       body: JSON.stringify({ 
         error: 'Endpoint not found',
         path: apiPath,
-        method: event.httpMethod
+        method: event.httpMethod,
+        supportedRoutes: [
+          'GET /api/quran/surah/:id',
+          'GET /api/quran/tafsir/:id',
+          'POST /api/ai/analyze',
+          'POST /api/ai/chatbot',
+          'POST /api/ai/generate-question',
+          'POST /api/ai/evaluate-answer'
+        ]
       })
     };
 
