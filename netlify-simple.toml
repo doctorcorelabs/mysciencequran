@@ -1,5 +1,5 @@
 [build]
-  command = "npm ci && npm run build"
+  command = "npm run build"
   functions = "netlify/functions"
   publish = "dist"
 
@@ -15,16 +15,6 @@
   to = "/index.html"
   status = 200
 
-[dev]
-  command = "npm run dev"
-  port = 5173
-  publish = "dist"
-
-# Node.js version for Netlify
+# Node.js version
 [build.environment]
   NODE_VERSION = "18"
-
-# Environment variables for production
-[context.production.environment]
-  NODE_ENV = "production"
-  VITE_API_BASE_URL = "https://ayat-sains-insight.netlify.app"

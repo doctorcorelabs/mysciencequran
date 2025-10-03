@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787';
 
@@ -207,7 +208,13 @@ const QuranChatbot: React.FC<ChatbotProps> = ({ analysisContext }) => {
                         : 'bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap text-justify">{message.content}</p>
+                    {message.role === 'assistant' ? (
+                      <div className="text-sm">
+                        <MarkdownRenderer content={message.content} />
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap text-justify">{message.content}</p>
+                    )}
                     <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-emerald-100' : 'text-gray-500'}`}>
                       {message.timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                     </p>
