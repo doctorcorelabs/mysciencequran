@@ -47,4 +47,4 @@
 # Environment variables for production
 [context.production.environment]
   NODE_ENV = "production"
-  VITE_API_BASE_URL = "https://ayat-sains-insight.netlify.app"
+  # VITE_API_BASE_URL removed - using relative URLs via window.location.origin

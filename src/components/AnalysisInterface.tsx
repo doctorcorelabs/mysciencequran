@@ -22,7 +22,9 @@ const iconMap: { [key: string]: React.ElementType } = {
   Search: Search,
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787';
+// Use relative URLs to avoid CORS issues
+// In production, API will be served from same domain via Netlify redirects
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8787');
 
 const AnalysisInterface = () => {
   const [inputText, setInputText] = useState("");
