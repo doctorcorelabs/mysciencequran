@@ -1,0 +1,13 @@
+# Headers for all API routes
+/api/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization, Accept-Language, X-Preferred-Language
+  Access-Control-Allow-Credentials: true
+
+# Headers for Netlify Functions
+/.netlify/functions/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization, Accept-Language, X-Preferred-Language
+  Access-Control-Allow-Credentials: true

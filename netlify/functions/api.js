@@ -193,10 +193,25 @@ export const handler = async (event, context) => {
     };
   }
 
+  // Get the actual path - Netlify passes the full path including splat
+  // event.path will be something like "/.netlify/functions/api/ai/chatbot"
+  // We need to extract everything after "/api/"
+  let actualPath = event.path;
+  
+  // If path contains /.netlify/functions/api, remove it to get the actual endpoint
+  if (actualPath.includes('/.netlify/functions/api')) {
+    actualPath = actualPath.replace('/.netlify/functions/api', '');
+  }
+  
+  // If it doesn't start with /api, add it for consistent matching
+  if (!actualPath.startsWith('/api')) {
+    actualPath = '/api' + actualPath;
+  }
+
   // Convert Netlify event to Express-like request
   const request = {
     method: event.httpMethod,
-    url: event.path,
+    url: actualPath,
     headers: event.headers,
     body: requestBody,
     params: event.pathParameters || {},
