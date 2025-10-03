@@ -35,6 +35,10 @@ export const handler = async (event, context) => {
       apiPath = url.pathname;
       console.log('Extracted path from rawUrl:', apiPath);
     }
+    
+    console.log('Method:', event.httpMethod);
+    console.log('Path for routing:', apiPath);
+    console.log('Checking chatbot match:', apiPath.includes('/ai/chatbot'));
 
     // Route handling
     // GET /api/quran/surah/:nomor
