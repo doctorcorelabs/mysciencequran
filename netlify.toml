@@ -1,21 +1,26 @@
-# example netlify.toml
 [build]
   command = "npm run build"
   functions = "netlify/functions"
   publish = "dist"
 
-  ## Uncomment to use this redirect for Single Page Applications like create-react-app.
-  ## Not needed for static site generators.
-  #[[redirects]]
-  #  from = "/*"
-  #  to = "/index.html"
-  #  status = 200
+# Redirect all API calls to Netlify Functions
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
 
-  ## (optional) Settings for Netlify Dev
-  ## https://github.com/netlify/cli/blob/main/docs/netlify-dev.md#project-detection
-  #[dev]
-  #  command = "yarn start" # Command to start your dev server
-  #  port = 3000 # Port that the dev server will be listening on
-  #  publish = "dist" # Folder with the static content for _redirect file
+# Redirect all other routes to index.html for SPA
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
-  ## more info on configuring this file: https://ntl.fyi/file-based-build-config
+[dev]
+  command = "npm run dev"
+  port = 5173
+  publish = "dist"
+
+# Environment variables for production
+[context.production.environment]
+  NODE_ENV = "production"
+  VITE_API_BASE_URL = "https://ayat-sains-insight.netlify.app"

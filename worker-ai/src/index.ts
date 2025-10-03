@@ -16,6 +16,8 @@ interface AIRequestBody {
 const ALLOWED_ORIGINS: string[] = [
 	'https://mysciencequran.daivanlabs.com', // Produksi
 	'https://neuroquran.daivanlabs.com',     // Domain baru
+	'https://ayat-sains-insight.netlify.app', // Netlify deployment
+	'https://ayat-sains-insight--main.netlify.app', // Netlify branch preview
 	'http://localhost:8080',                 // Development Lokal
 	'http://127.0.0.1:8080'                  // Development Lokal (alternative)
 ];
@@ -372,6 +374,135 @@ async function proxyRequest(request: Request, targetUrl: string): Promise<Respon
 }
 
 
+// --- NEW FUNCTION: Handle Chatbot ---
+async function handleChatbot(request: Request, env: Env): Promise<Response> {
+   const requestOrigin = request.headers.get('Origin');
+   try {
+	   const { message, context, conversationHistory } = (await request.json()) as { 
+		   message: string; 
+		   context: any | null;
+		   conversationHistory?: Array<{role: string; content: string}>;
+	   };
+
+	   if (!message) {
+		   return addCorsHeaders(new Response(JSON.stringify({ code: 400, message: 'Missing message for chatbot.' }), {
+			   headers: { 'Content-Type': 'application/json' },
+			   status: 400,
+		   }), requestOrigin);
+	   }
+
+	   let systemPrompt = '';
+	   let contextInfo = '';
+
+	   if (context && context.verse) {
+		   // Mode Kontekstual: User sudah menganalisis ayat
+		   systemPrompt = `Anda adalah asisten AI yang ahli dalam Al-Quran dan tafsirnya. Anda membantu pengguna memahami ayat Al-Quran yang sedang mereka analisis. 
+		   
+Gunakan bahasa yang sopan dan menggunakan istilah-istilah Islam yang tepat seperti: Allah SWT, Rasulullah SAW, subhanahu wa ta'ala, shalallahu 'alaihi wasallam, Insya Allah, Masha Allah, Barakallahu, dll.
+
+Berikan jawaban yang:
+- Kontekstual dan relevan dengan ayat yang sedang dibahas
+- Mengacu pada tafsir yang tersedia jika ada
+- Menghubungkan dengan keterkaitan ilmiah jika relevan
+- Mendalam namun mudah dipahami
+- Menggunakan referensi Al-Quran dan Hadits jika memungkinkan
+- Dalam Bahasa Indonesia yang baik dan benar
+
+Selalu berikan jawaban yang mendidik dan memperkuat iman.`;
+
+		   contextInfo = `
+KONTEKS AYAT YANG SEDANG DIANALISIS:
+Surah: ${context.surahNumber || 'N/A'}
+Ayat: ${context.ayahNumber || 'N/A'}
+
+Teks Arab: ${context.verse.arabic || 'N/A'}
+Terjemahan: ${context.verse.translation || 'N/A'}
+${context.verse.transliteration ? `Transliterasi: ${context.verse.transliteration}` : ''}
+
+${context.tafsir ? `TAFSIR:\n${context.tafsir}` : ''}
+
+${context.scientificConnections && context.scientificConnections.length > 0 ? `
+KETERKAITAN ILMIAH:
+${context.scientificConnections.map((conn: any) => `- ${conn.field}: ${conn.description}`).join('\n')}
+` : ''}`;
+	   } else {
+		   // Mode Universal: User belum menganalisis ayat
+		   systemPrompt = `Anda adalah asisten AI yang ahli dalam Al-Quran, tafsir, dan ilmu pengetahuan Islam. Anda membantu pengguna memahami Al-Quran secara universal.
+
+Gunakan bahasa yang sopan dan menggunakan istilah-istilah Islam yang tepat seperti: Allah SWT, Rasulullah SAW, subhanahu wa ta'ala, shalallahu 'alaihi wasallam, Insya Allah, Masha Allah, Barakallahu fiikum, dll.
+
+Berikan jawaban yang:
+- Universal tentang Al-Quran, surah, dan ayat-ayatnya
+- Menggunakan pengetahuan umum tentang Islam
+- Menjelaskan konsep-konsep dalam Al-Quran
+- Memberikan konteks historis jika diperlukan
+- Menghubungkan dengan ilmu pengetahuan modern jika relevan
+- Mendidik dan memperkuat pemahaman Islam
+- Dalam Bahasa Indonesia yang baik dan benar
+
+Jika pengguna bertanya tentang ayat spesifik, berikan informasi umum dan sarankan untuk menggunakan fitur analisis ayat untuk mendapatkan pemahaman yang lebih mendalam.`;
+
+		   contextInfo = `Anda dalam mode universal. Pengguna dapat bertanya tentang topik umum seputar Al-Quran, ayat-ayat, surah-surah, tafsir, atau keterkaitan dengan ilmu pengetahuan.`;
+	   }
+
+	   // Build conversation messages
+	   const messages = [
+		   {
+			   role: "system",
+			   content: systemPrompt + "\n\n" + contextInfo
+		   }
+	   ];
+
+	   // Add conversation history if available
+	   if (conversationHistory && conversationHistory.length > 0) {
+		   messages.push(...conversationHistory.map(msg => ({
+			   role: msg.role === 'user' ? 'user' : 'assistant',
+			   content: msg.content
+		   })));
+	   }
+
+	   // Add current user message
+	   messages.push({
+		   role: "user",
+		   content: message
+	   });
+
+	   const openrouterPayload = {
+		   model: "openai/gpt-4o-mini",
+		   messages: messages,
+		   temperature: 0.7,
+		   max_tokens: 800
+	   };
+
+	   try {
+		   const text = await callOpenRouterAPI(openrouterPayload, env.OPENROUTER_API_KEY);
+		   
+		   return addCorsHeaders(new Response(JSON.stringify({
+			   code: 200,
+			   reply: text.trim()
+		   }), { headers: { 'Content-Type': 'application/json' }, status: 200 }), requestOrigin);
+
+	   } catch (aiError: any) {
+		   console.error('AI chatbot failed:', aiError.message);
+		   
+		   return addCorsHeaders(new Response(JSON.stringify({
+			   code: 500,
+			   message: 'Chatbot gagal merespons',
+			   reply: 'Maaf, saya mengalami kesulitan merespons saat ini. Silakan coba lagi nanti.'
+		   }), { headers: { 'Content-Type': 'application/json' }, status: 500 }), requestOrigin);
+	   }
+
+   } catch (error: any) {
+	   console.error('Error during chatbot:', error);
+	   
+	   return addCorsHeaders(new Response(JSON.stringify({
+		   code: 500,
+		   message: `Chatbot error: ${error.message}`,
+		   reply: 'Maaf, terjadi kesalahan. Silakan coba lagi nanti.'
+	   }), { headers: { 'Content-Type': 'application/json' }, status: 500 }), requestOrigin);
+   }
+}
+
 // --- NEW FUNCTION: Handle Mind Map Generation ---
 async function handleMindMapGeneration(request: Request, env: Env): Promise<Response> {
    const requestOrigin = request.headers.get('Origin');
@@ -541,6 +672,10 @@ export default {
 			return handleMindMapGeneration(request, env);
 		}
 
-		return addCorsHeaders(new Response('Not Found. Supported routes: GET /api/quran/surah/:id, GET /api/quran/tafsir/:id, POST /api/ai/analyze, POST /api/ai/generate-question, POST /api/ai/evaluate-answer, POST /api/ai/mindmap-tafsir', { status: 404 }), requestOrigin);
+		if (request.method === 'POST' && url.pathname === '/api/ai/chatbot') {
+			return handleChatbot(request, env);
+		}
+
+		return addCorsHeaders(new Response('Not Found. Supported routes: GET /api/quran/surah/:id, GET /api/quran/tafsir/:id, POST /api/ai/analyze, POST /api/ai/generate-question, POST /api/ai/evaluate-answer, POST /api/ai/mindmap-tafsir, POST /api/ai/chatbot', { status: 404 }), requestOrigin);
 	},
 };

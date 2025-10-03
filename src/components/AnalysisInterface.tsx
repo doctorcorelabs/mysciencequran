@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Lightbulb, BookOpen, Microscope, Globe, Atom, Heart, Zap } from "lucide-react";
+import QuranChatbot from "@/components/QuranChatbot";
 
 // Map icon names from backend to Lucide-react components
 const iconMap: { [key: string]: React.ElementType } = {
@@ -649,6 +650,22 @@ const AnalysisInterface = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Chatbot with Analysis Context */}
+      {analysisResult && (
+        <QuranChatbot
+          analysisContext={{
+            verse: analysisResult.verse,
+            surahNumber: selectedSurah,
+            ayahNumber: selectedAyah,
+            tafsir: analysisResult.tafsir,
+            scientificConnections: analysisResult.scientificConnections
+          }}
+        />
+      )}
+      
+      {/* Chatbot without context when no analysis */}
+      {!analysisResult && <QuranChatbot />}
     </div>
   );
 };

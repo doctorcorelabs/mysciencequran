@@ -119,6 +119,24 @@ app.post('/api/ai/evaluate-answer', async (req, res) => {
   }
 });
 
+// Proxy endpoint for chatbot
+app.post('/api/ai/chatbot', async (req, res) => {
+  try {
+    const response = await fetch('https://worker-ai.daivanfebrijuansetiya.workers.dev/api/ai/chatbot', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(req.body),
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Error proxying chatbot to worker-ai:', error);
+    res.status(500).json({ error: 'Failed to proxy chatbot request' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });

@@ -10,6 +10,7 @@ import HeroSection from "@/components/HeroSection";
 import AnalysisInterface from "@/components/AnalysisInterface";
 import PopularFindings from "@/components/PopularFindings";
 import Footer from "@/components/Footer";
+import QuranChatbot from "@/components/QuranChatbot";
 
 const Index = () => {
   const [currentSection, setCurrentSection] = useState<'home' | 'analysis'>('home');
@@ -88,6 +89,9 @@ const Index = () => {
       {currentSection === 'analysis' && <AnalysisInterface />}
       
       <Footer />
+      
+      {/* Chatbot - Mode Universal ketika di home, tidak tampil di analysis */}
+      {currentSection === 'home' && <QuranChatbot />}
     </div>
   );
 };

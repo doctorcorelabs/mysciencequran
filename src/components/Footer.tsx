@@ -39,7 +39,7 @@ const Footer = () => {
         <div className="border-t border-gray-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-center items-center">
             <p className="text-sm text-gray-400">
-              © 2025 MyScienceQuran. Semua hak dilindungi.
+              © 2025 Neuro-Quran Insight. Semua hak dilindungi.
             </p>
           </div>
         </div>
