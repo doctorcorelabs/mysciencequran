@@ -145,6 +145,23 @@ app.post('/api/ai/chatbot', async (req, res) => {
 
 // Netlify Functions handler
 export const handler = async (event, context) => {
+  // Get the origin from the request headers
+  const requestOrigin = event.headers.origin || event.headers.Origin || '';
+  
+  // List of allowed origins
+  const allowedOrigins = [
+    'https://mysciencequran.daivanlabs.com',
+    'https://neuroquran.daivanlabs.com',
+    'https://ayat-sains-insight.netlify.app',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173'
+  ];
+
+  // Determine the origin to allow
+  const allowOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : '*';
+
   // Convert Netlify event to Express-like request
   const request = {
     method: event.httpMethod,
@@ -155,10 +172,26 @@ export const handler = async (event, context) => {
     query: event.queryStringParameters || {}
   };
 
-  // Mock response object
+  // Mock response object with CORS headers
   let responseBody = '';
   let statusCode = 200;
-  let headers = { 'Content-Type': 'application/json' };
+  let headers = { 
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept-Language, X-Preferred-Language',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Credentials': 'true',
+    'Vary': 'Origin'
+  };
+
+  // Handle CORS preflight requests
+  if (request.method === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
+  }
 
   const response = {
     status: (code) => {
