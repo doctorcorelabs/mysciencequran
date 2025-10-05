@@ -11,6 +11,7 @@ import AnalysisInterface from "@/components/AnalysisInterface";
 import PopularFindings from "@/components/PopularFindings";
 import Footer from "@/components/Footer";
 import QuranChatbot from "@/components/QuranChatbot";
+import DisclaimerPopup from "@/components/DisclaimerPopup";
 
 const Index = () => {
   const [currentSection, setCurrentSection] = useState<'home' | 'analysis'>('home');
@@ -92,6 +93,9 @@ const Index = () => {
       
       {/* Chatbot - Mode Universal ketika di home, tidak tampil di analysis */}
       {currentSection === 'home' && <QuranChatbot />}
+      
+      {/* Disclaimer Popup */}
+      <DisclaimerPopup />
     </div>
   );
 };
